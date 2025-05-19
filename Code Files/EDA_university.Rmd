@@ -1,0 +1,400 @@
+---
+title: "EDA university"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(gridExtra)
+```
+
+# Marital Status
+
+```{r}
+
+table(data$marital_status)
+
+# 1.Single, 2.Married, 3.Widower, 4.Divorced, 5.Common-law Marriage, 6.Legally Separated
+
+ggplot(data) +
+  geom_bar(
+    mapping = aes(x = marital_status, fill = dropout),
+    position = "fill"
+    )
+
+# Way more single than anything else. If going to use, probably combine into 'single' and 'living with partner'.
+
+table(data$single)
+
+#0.Married or living with partner, 1.Other
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = single, fill = dropout),
+           position = "fill"
+           )
+
+```
+```{r}
+# COURSE AND ATTENDANCE MODE
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = course, fill = attendance_mode),
+           position = "fill")
+
+# The course list has these as evening attendance. Everything else is daytime. So this is useless.
+# Why did this not show up on the dataset paper?
+
+social_service <- data %>% 
+                select(c(course,attendance_mode, dropout)) %>%
+                filter(course == c(3,10))
+
+ggplot(social_service) +
+  geom_bar(mapping = aes(x = attendance_mode, fill = dropout),
+           position = "fill")
+
+management <- data %>%
+              select(c(course, attendance_mode, dropout)) %>%
+              filter(course == c(9,17))
+
+ggplot(management) +
+  geom_bar(mapping = aes(x = attendance_mode, fill = dropout),
+           position = "fill")
+
+# So, attendance mode makes a difference, but surely it's already captured in the different courses.
+
+```
+# COURSE AND ACADEMIC SCHOOL
+
+```{r}
+
+table(data$course)
+
+ggplot(data) + 
+  geom_bar(mapping = aes(x=course, fill=dropout),
+          position = "fill")
+# Course looks important. Might have to drop the smallest one. Could group them into subject areas?
+
+table(data$academic_school)
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = academic_school, fill=dropout),
+           position = "fill")
+
+# Think we're losing too much detail here.
+
+```
+# BINARY VARIABLES
+
+```{r}
+
+#table(data$gender)
+
+ggplot(data) +
+  geom_bar(
+    mapping = aes(x = gender, fill=dropout),
+    position = "fill")
+
+# More female students that male, but dropout numbers are nearly the same.
+
+#table(data$scholarship_holder)
+
+ggplot(data) +
+  geom_bar(
+    mapping = aes(x = scholarship_holder, fill=dropout),
+    position = "fill")
+
+# Going to want that in.
+
+#table(data$educational_special_needs) #Only 50 of them.
+
+ggplot(data) + 
+  geom_bar(mapping = aes(x = educational_special_needs, fill=dropout),
+  position = "fill")
+
+# No real difference here. The university must have good support systems!
+
+#table(data$nationality) # Same as the international/home split, so could just delete this column
+#table(data$international)
+
+prop.table(table(data$displaced))
+
+ggplot(data) +
+  geom_bar(mapping = aes( x = displaced, fill = dropout),
+  position = "fill")
+
+# Loads of displaced students. Seem to be less likely to drop out.
+
+table(data$debtor)
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = debtor, fill = dropout),
+  position = "fill")
+
+ggplot(data) +
+  geom_bar(
+    mapping = aes(x = single, fill = factor(dropout)),
+    position = "fill")
+
+#Dropout rate is clearly higher in those married/living with a partner
+
+```
+# International / Nationality
+
+```{r}
+table(data$nationality) # Same as the international/home split, so could just delete this column
+table(data$international)
+
+prop.table(table(data$nationality))
+
+# Nationality starts at 1.
+
+# Home students who are not Portuguese. None
+rowSums(data %>% 
+          select(nationality,international) %>%
+          filter(as.integer(nationality) != 1, as.integer(international) == 0))
+
+# International students who are Portuguese. None
+rowSums(data %>% 
+          select(nationality,international) %>%
+          filter(nationality %in% c('1'), international %in% c('1')))
+
+ggplot(data) +
+  geom_bar(
+    mapping = aes(x = international, fill=dropout),
+    position = "fill")
+
+# Proportions are about the same and there's hardly any international students anyway, so drop this.
+
+```
+# Age at Enrollment
+
+```{r}
+
+table(data$age_at_enrollment) # Group that?
+
+ggplot(data) +
+  geom_histogram(mapping = aes(x= age_at_enrollment, fill=dropout),
+  position = "fill")
+
+ggplot(data, aes(x= age_at_enrollment, fill = dropout)) +
+  geom_histogram(position = "fill") +
+  xlim(17,30)
+
+# Bit of a trend up to late 20s, then no. But trying to capture this isn't getting better results.
+
+```
+
+# Previous Education and Parent Education
+```{r}
+
+#table(data$mother_qualification)
+
+# Definitely condense the qualification tables, since so many have less than 10.
+
+#table(data$mother_occupation)
+
+# Another one for condensing
+
+ggplot(data) +
+  geom_bar(mapping = aes( x = mother_occupation, fill = dropout),
+  position = "fill"
+           )
+
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = previous_education, fill = factor(dropout)),
+           position = "fill")
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = mother_education, fill = factor(dropout)),
+           position = "fill")
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = mother_education))
+
+table(data$mother_education) #tiny amount in 3, few in 0, few in 5 but that's unknown
+
+table(data$father_education) #still few in 3, loads in 0 not many in 1
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = father_education, fill = factor(dropout)),
+           position = "fill")
+
+
+```
+# Parent professions
+
+```{r}
+ggplot(data) +
+  geom_bar(mapping = aes(x = mother_profession, fill = factor(dropout)),
+           position = "fill"
+  )
+
+ggplot(data) + 
+  geom_bar(mapping = aes(x = father_profession, fill = factor(dropout)),
+           position = "fill"
+           )
+
+table(data$mother_profession) # Four of these are still under 100.
+table(data$father_profession)
+
+```
+
+# Application Mode
+
+```{r}
+table(data$application_mode) # don't know what half the options mean.
+
+ggplot(data) +
+  geom_bar(
+    mapping = aes(x = application_mode, fill=factor(dropout)),
+    position = "fill"
+  )
+
+# Further investigation required. Probably group them.
+
+table(data$application_group)
+
+ggplot(data) +
+  geom_bar(
+    mapping = aes(x = application_group, fill = factor(dropout)),
+    position = "fill"
+  )
+
+```
+# Transfer
+
+```{r}
+table(data$transfer)
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = transfer, fill = factor(dropout)),
+           position = "fill")
+
+# Small difference, and that has a much smaller MI score.
+
+transfers <- data %>%
+              select(c(transfer, previous_qualification)) %>%
+              filter(transfer == 1)
+
+table(transfers)
+
+#6 is Frequency of Higher Education
+
+# transfer students in other PQ cats
+others <- ((355-12)/355)*100
+others
+```
+```{r}
+colSums(is.na(data))/nrow(data)
+```
+
+# Previous Qualification
+```{r}
+freqs <- data %>%
+          select(c(previous_qualification, age_at_enrollment,application_mode)) %>%
+          filter(previous_qualification == 6)
+
+data %>%
+  select(c(previous_qualification, transfer)) %>%
+  filter(transfer == 1)
+```
+
+```{r}
+ggplot(data) +
+  geom_bar(mapping = aes(x = course, fill = gender),
+           position = "fill") +
+  xlab("") +
+  ylab("") +
+  coord_flip() +
+  scale_fill_manual(values = c("pink", "#4E84C4")) +
+  labs(title = "Course Gender Split") +
+  scale_x_discrete(labels = c("Biofuel Production Technologies", "Animation & Multimedia Design", "Social Service (eve)", "Agronomy", "Communication Design", "Veterinary Nursing", "Informatics Engineering", "Equiniculture", "Management", "Social Service", "Tourism", "Nursing", "Oral Hygiene", "Advertising & Marketing Management", "Journalism & Communication", "Basic Education", "Management (eve)")) +
+  scale_y_continuous(labels = c("0", "25%", "50%", "75%", "100%")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = course, fill = dropout),
+           position = "fill") +
+  coord_flip()
+
+# Percent male on each course
+
+percent_male <- data %>%
+                group_by(course) %>%
+                reframe(course_percent_male = round(mean(gender==1)*100),
+                        course_percent_dropout = round(mean(dropout==1)*100)
+                        )
+
+cor(percent_male$course_percent_male, percent_male$course_percent_dropout) #0.7
+
+ggplot(percent_male, aes(x = course_percent_male, y = course_percent_dropout)) +
+  geom_point() +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 100)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 100)) +
+  labs(title = "Percentage of Males vs Percentage of Dropouts by Course\n", x = "% Males", y = "% Dropout")
+  
+
+# Outlier is Basic Education
+
+p.all <- ggplot(data) +
+          geom_bar(mapping = aes(x = course, fill = dropout),
+                   position = "fill") +
+          coord_flip()
+
+women <- data %>%
+          filter(gender == 0)
+
+p.women <- ggplot(women) +
+            geom_bar(mapping = aes(x = course, fill = dropout),
+              position = "fill") +
+            coord_flip() +
+            labs(title = "Women")
+
+men <- data %>%
+        filter(gender == 1)
+
+p.men <- ggplot(men) +
+          geom_bar(mapping = aes(x = course, fill = dropout),
+           position = "fill") +
+          coord_flip() +
+          labs(title = "Men")
+
+grid.arrange(p.all, p.women, p.men)
+
+#There are definitely similarities if you split by gender, but the patterns aren't the same.
+
+```
+# Gender and other variables
+```{r}
+
+
+ggplot(data) +
+  geom_boxplot(mapping = aes(x = age_at_enrollment, fill = gender)) +
+  ylab("") +
+  theme(legend.position = "none", axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  scale_fill_manual(values = c("pink", "#4E84C4")) +
+  labs(title = "Age Distribution by Gender") +
+  xlab("Age at Enrollment")
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = debtor, fill = gender),
+           position = "fill") +
+  scale_fill_manual(values = c("pink", "#4E84C4"))
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = scholarship_holder, fill = gender),
+           position = "fill") +
+  scale_fill_manual(values = c("pink", "#4E84C4"))
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = displaced, fill = gender),
+           position = "fill") +
+  scale_fill_manual(values = c("pink", "#4E84C4"))
+
+ggplot(data) +
+  geom_bar(mapping = aes(x = previous_education, fill = gender),
+           position = "fill") +
+  scale_fill_manual(values = c("pink", "#4E84C4"))
+  
+```

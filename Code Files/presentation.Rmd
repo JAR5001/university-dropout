@@ -1,0 +1,77 @@
+---
+title: "Presentation"
+output: html_notebook
+---
+```{r}
+# Libraries
+library(tidyverse)
+library(gridExtra)
+```
+
+```{r}
+
+p_scholar <- ggplot(data) +
+            geom_bar(mapping = aes(x = scholarship_holder, fill = dropout),
+                    position = "fill") +
+            theme(legend.position = "none", axis.text.y = element_blank()) +
+            ylab("Proportion") +
+            scale_fill_manual(values = c("orange", "#4E84C4"))
+
+p_debtor <- ggplot(data) +
+            geom_bar(mapping = aes(x = debtor, fill = dropout),
+                     position = "fill") +
+            theme(legend.position = "none", axis.text.y = element_blank()) +
+            ylab("") +
+            scale_fill_manual(values = c("orange", "#4E84C4"))
+
+p_gender <- ggplot(data) +
+            geom_bar(mapping = aes(x = gender, fill = dropout),
+                    position = "fill") +
+            theme(legend.position = "none", axis.text.y = element_blank()) +
+            ylab("") +
+            scale_fill_manual(values = c("orange", "#4E84C4"))
+
+p_displaced <- ggplot(data) +
+                geom_bar(mapping = aes(x = displaced, fill = dropout),
+                         position = "fill") +
+                theme(legend.position = "none", axis.text.y = element_blank()) +
+                ylab("Proportion") +
+                scale_fill_manual(values = c("orange", "#4E84C4"))
+
+p_single <- ggplot(data) +
+            geom_bar(mapping = aes(x = single, fill = dropout),
+                    position = "fill") +
+            theme(legend.position = "none", axis.text.y = element_blank()) +
+            ylab("") +
+            scale_fill_manual(values = c("orange", "#4E84C4"))
+
+p_transfer <- ggplot(data) +
+              geom_bar(mapping = aes(x = transfer, fill = dropout),
+                       position = "fill") +
+              theme(legend.position = "none", axis.text.y = element_blank()) +
+              ylab("") +
+              scale_fill_manual(values = c("orange", "#4E84C4"))
+
+p_age <- ggplot(data) +
+          geom_histogram(mapping = aes(x= age_at_enrollment, fill = dropout),
+                         position = "fill") +
+          ylab("") +
+          theme(axis.text.y = element_blank()) +
+          scale_fill_manual(values = c("orange", "#4E84C4"))
+
+grid.arrange(p_scholar, p_debtor, p_gender, p_single, p_displaced, p_transfer, p_age, nrow = 2, layout_matrix = rbind(c(1,2,3,4), c(5,6,7,7)))
+
+
+```
+```{r}
+
+ggplot(data) +
+  geom_boxplot(mapping = aes(x = age_at_enrollment, fill = gender)) +
+  ylab("") +
+  theme(legend.position = "none", axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  scale_fill_manual(values = c("pink", "#4E84C4")) +
+  labs(title = "Age Distribution by Gender") +
+  xlab("Age at Enrollment")
+
+```
+

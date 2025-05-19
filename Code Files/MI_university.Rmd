@@ -1,0 +1,92 @@
+---
+title: "Mutual Information - University"
+output: html_document
+---
+```{r}
+# Install libraries
+library(infotheo)
+library(tidyverse)
+library(RColorBrewer)
+
+data <- data
+
+# Impute mode function
+impute_mode <- function(data,columns)
+{
+  mode_function <- function(x) names(sort(table(x), decreasing = TRUE))[1]
+  
+  data %>%
+    mutate(across(all_of(columns), ~ ifelse(is.na(.), mode_function(.), .)))
+}
+
+# Hex codes for the colour palette
+brewer.pal(8, "Oranges")
+```
+
+# Original Variables
+```{r}
+
+original_vars <- data %>% 
+                  select(c(dropout, marital_status, application_mode, course, attendance_mode, previous_qualification, nationality, mother_qualification, father_qualification, mother_occupation, father_occupation, displaced, educational_special_needs, debtor, gender, scholarship_holder, age_at_enrollment, international)) %>%
+                  impute_mode(c("mother_qualification", "father_qualification", "mother_occupation", "father_occupation"))
+
+mut_info_org <- mutinformation(original_vars)
+
+heatmap(mut_info_org, scale = "column", Colv = NA, Rowv = NA, margins = c(12,3), main = "Heatmap of MI Scores", col = brewer.pal(8, "Oranges"))
+
+mi_scores_org <- mut_info_org[-1,"dropout"] %>%
+              sort()
+
+par(mar = c(4,13,0,0))
+barplot(mi_scores_org,
+        horiz = T,
+        las = 1,
+        col = "#FD8D3C",
+        xlab = "Mutual Information Score with Dropout (Original Variables")
+
+```
+
+# All the parent variables
+```{r}
+
+parents <- data %>% 
+            select(c(dropout, mother_education, mother_profession, father_education, father_profession, opposite_sex_parent_education, opposite_sex_parent_profession, same_sex_parent_education, same_sex_parent_profession, highest_parent_education)) %>%
+            impute_mode(everything())
+
+mut_info_parents <- mutinformation(parents)
+
+heatmap(mut_info_parents, scale = "column", Colv = NA, Rowv = NA, margin = c(12,3), col = brewer.pal(8, "Oranges"))
+
+mi_scores_parents <- mut_info_parents[-1,"dropout"] %>%
+              sort()
+
+par(mar = c(4,13,0,0))
+barplot(mi_scores_parents,
+        horiz = T, 
+        las = 1,
+        col = "#FD8D3C",
+        xlab = "Mutual Information Score with Dropout")
+
+```
+# Everything Not Eliminated
+```{r}
+
+rest <- data %>%
+        select(c(dropout, course, age_at_enrollment, scholarship_holder, same_sex_parent_education, opposite_sex_parent_profession, debtor, gender, previous_education, displaced, single, international, educational_special_needs, transfer)) %>%
+        impute_mode(c("same_sex_parent_education", "opposite_sex_parent_profession"))
+
+mut_info_rest <- mutinformation(rest)
+
+heatmap(mut_info_rest, scale = "column", Colv = NA, Rowv = NA, margin = c(12,3), col = brewer.pal(8, "Oranges"))
+
+mi_scores_rest <- mut_info_rest[-1,"dropout"] %>%
+              sort()
+
+par(mar = c(4,13,5,0))
+barplot(mi_scores_rest,
+        horiz = T, 
+        las = 1,
+        col = "#FD8D3C",
+        main = "Mutual Information Score with Dropout")
+
+```

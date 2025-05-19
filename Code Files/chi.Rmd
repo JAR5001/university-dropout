@@ -1,0 +1,31 @@
+# Chi - Squared
+
+```{r}
+library(RColorBrewer)
+library(dplyr)
+
+df_chi <- data %>%
+          select(c(course, displaced, educational_special_needs, debtor, gender, scholarship_holder, same_sex_parent_education, opposite_sex_parent_profession, previous_education, single, international, dropout))
+
+matrix <- data.matrix(df_chi) # turn data into matrix
+cols <- asplit(matrix, 2) # split matrix into columns
+
+# Apply the chi test to the table of every pair of columns in the matrix.
+# sim = TRUE clears errors 'approximation' messages.
+# $p.value gets the score for each one.
+
+chis <- outer(cols, cols, Vectorize(function(x,y) chisq.test(table(x,y), sim = TRUE)$p.value))
+
+heatmap(chis, scale = "column", Colv = NA, Rowv = NA, margins = c(12,3), main = "Heatmap of P Values", col = brewer.pal(8, "Oranges"))
+
+# With p-values, we actually want lower scores, so we're looking for the white bits
+
+# Confirms no relationship between International/Education Special Needs and Dropout
+
+drop_scores <- chis[-c(3,11),12]
+
+barplot(drop_scores)
+
+#All the rest are the same.
+
+```

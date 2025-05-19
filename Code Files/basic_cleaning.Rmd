@@ -1,0 +1,121 @@
+---
+title: "Basic Cleaning"
+output: html_notebook
+---
+```{r}
+# Load library
+library(tidyverse)
+
+# Import original data file
+data <- read_csv("university.csv")
+
+```
+#BASIC CLEANING
+```{r}
+
+# Duplicate rows
+sum(duplicated(data)) # None
+
+# Duplicate columns
+sum(duplicated(t(data))) # None
+
+# Empty rows
+nrow(data[apply(is.na(data) | data=="",1,all),]) # None
+
+# Empty columns
+ncol(data %>% select(where(function(x) all(is.na(x) | x=="")))) # None
+
+# Columns with single variable
+sum(apply(data,2,function(x) min(x)==max(x))) # None
+
+# NA and blank
+sum(is.na(data)) # No NAs in dataset
+sum(!grepl("", data)) # No empty strings either.
+
+```
+
+# ALTER VARIABLE NAMES TO STANDARD FORMAT
+```{r}
+colnames(data) <- str_squish(colnames(data))
+
+# Change spaces to underscores
+colnames(data) <-str_replace_all(colnames(data)," ","_")
+
+# Remove trailing underscore
+colnames(data) <- str_replace(colnames(data), "_$","")
+
+# Remove 's from Father's and Mother's
+colnames(data) <- str_replace(colnames(data),"r's","r")
+
+# Correct spelling of 'Nacionality.
+data <- data %>% rename("Nationality" = "Nacionality")
+
+colnames(data) <- tolower(colnames(data))
+
+# Remove / from daytime/evening_attendance
+data <- data %>% rename("attendance_mode" = "daytime/evening_attendance")
+
+# Remove brackets
+colnames(data) <- str_replace(colnames(data), "\\(", "")
+colnames(data) <- str_replace(colnames(data), "\\)", "")
+
+```
+# The dataset has three options for outcome, Dropout, Graduate, (still) Enrolled. To simplify the model, I'm going to change this to two options: Dropout or Not Dropout, dropping the Enrolled class.
+
+```{r}
+#ADJUST TARGET VARIABLE
+
+# Rename the original 'target' variable as 'outcome'
+data <- data %>% rename("outcome" = "target")
+
+# Drop all the rows with outcome 'Enrolled'
+data <- subset(data, outcome != "Enrolled")
+
+# Create binary variable 'Dropout'
+data <- data %>% mutate (
+  dropout = ifelse(outcome == "Dropout",1,0)
+)
+
+# Check again that no columns with single variable
+sum(apply(data,2,function(x) min(x)==max(x))) #None
+
+```
+# NON-RELEVANT COLUMNS
+
+#For this model, I'm only considering pre-enrollment factors (i.e. only information available before enrollment), so all the curricular_unit columns and tuition fees will be deleted. Also the macro-economics factors.
+```{r}
+data <- data %>% select(-c(
+  curricular_units_1st_sem_credited, 
+  curricular_units_1st_sem_enrolled, 
+  curricular_units_1st_sem_evaluations, 
+  curricular_units_1st_sem_approved, 
+  curricular_units_1st_sem_grade, 
+  curricular_units_1st_sem_without_evaluations, 
+  curricular_units_2nd_sem_credited, 
+  curricular_units_2nd_sem_enrolled, 
+  curricular_units_2nd_sem_evaluations, 
+  curricular_units_2nd_sem_approved, 
+  curricular_units_2nd_sem_grade, 
+  curricular_units_2nd_sem_without_evaluations,
+  tuition_fees_up_to_date,
+  unemployment_rate,
+  inflation_rate,
+  gdp,
+  application_order
+))
+
+```
+
+#Remaining size of the dataset.
+```{r}
+dim(data)
+```
+
+
+# Export Clean File
+```{r}
+
+write.csv(data, "university_clean.csv")
+
+```
+

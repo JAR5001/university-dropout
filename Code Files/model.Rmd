@@ -1,0 +1,246 @@
+# MODEL
+
+```{r}
+library(tidyverse)
+library(caret)
+library(e1071)
+library(kernlab)
+library(pROC)
+library(RColorBrewer)
+
+# Impute mode function
+impute_mode <- function(data,columns)
+{
+  mode_function <- function(x) names(sort(table(x), decreasing = TRUE))[1]
+  
+  data %>%
+    mutate(across(all_of(columns), ~ ifelse(is.na(.), mode_function(.), .)))
+}
+```
+
+# Features
+```{r}
+model_set <- data %>%
+                select(c(dropout, age_at_enrollment, course, scholarship_holder, debtor, gender, same_sex_parent_education, previous_education, opposite_sex_parent_profession, displaced))
+
+# Convert everything except dropout to numeric, so can scale it.
+model_set[,-1] <- model_set[,-1] %>%
+                          sapply(as.numeric)
+
+```
+
+# Data splitting
+```{r}
+set.seed(5678)
+
+train_rows <- createDataPartition(model_set$dropout, p = 0.8, list = FALSE, times = 1)
+
+df_train <- model_set[train_rows, ]
+df_test <- model_set[-train_rows,]
+
+# Check set proportions
+test_prop <- nrow(df_test)/(nrow(df_test) + nrow(df_train))
+test_prop # 0.1997 in test set, so split is fine.
+
+# Check dropout proportions
+drop_prop <- nrow(filter(df_test, dropout == 1)) / (nrow(filter(df_train, dropout == 1)) + nrow(filter(df_test, dropout == 1)))
+drop_prop # 0.1999 in test set. Great.
+```
+# Model settings
+
+```{r}
+# Impute NAs in relevant columns
+# Doing this in each set separately to avoid data leakage.
+
+df_train <- df_train %>%
+              impute_mode(c("same_sex_parent_education", "opposite_sex_parent_profession"))
+
+df_test <- df_test %>%
+              impute_mode(c("same_sex_parent_education", "opposite_sex_parent_profession"))
+
+# 10-fold cross-validation
+# The random search is for parameter tuning. It will try however many random combinations of tuning features that tuneLength tells it to in each model.
+train_control <- trainControl(method = "cv", number = 10, search = "random")
+
+# Test Labels
+test_labels = as.numeric(df_test$dropout)
+```
+
+# Linear Model
+```{r}
+
+lin_start_time <- Sys.time()
+svm_linear <- train(dropout ~ ., data = df_train, method = "svmLinear", trControl = train_control, preProcess = "scale", tuneLength = 20)
+# The data is scaled here to prevent data leakage between cross-validation folds.
+
+lin_end_time <- Sys.time()
+lin_training_time <- lin_end_time - lin_start_time
+print(svm_linear)
+
+lin_test_start_time <- Sys.time()
+linear_predictions <- predict(svm_linear, newdata = df_test)
+lin_test_end_time <- Sys.time()
+lin_test_time <- lin_test_end_time - lin_test_start_time
+
+cat("Linear Training Time:", lin_training_time, "\n")
+cat("Linear Testing Time:", lin_test_time, "\n")
+cat("Best C value:", svm_linear$bestTune[1,1])
+
+best_c_value <- svm_linear$bestTune[1,1]
+
+```
+
+# Linear Model Evaluation
+```{r}
+# Confusion Matrix
+
+cm_linear <- confusionMatrix(linear_predictions, df_test$dropout, mode = "prec_recall")
+
+fourfoldplot(cm_linear$table, color = c("#FFF5EB", "#FD8D3C"), main = "Confusion Matrix - Linear")
+
+as.data.frame(cm_linear$table)
+
+ggplot(as.data.frame(cm_linear$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  scale_fill_gradient(low = "#FFF5EB", high = "#FD8D3C") +
+  theme_minimal() +
+  geom_text(aes(label = Freq), color = "black", size = 5, nudge_y = 0.1) +
+  geom_text(aes(label = c("TN", "FP", "FN", "TP")), size = 5, nudge_y = -0.1) +
+  labs(x = "Predicted", y = "Actual", title = "Confusion Matrix") +
+  theme(legend.position="none", plot.title = element_text(hjust=0.5, size = 14), axis.text = element_text(size = 12), axis.title = element_text(size = 12))
+  
+# ROC - AUC
+
+lin_test_preds = as.numeric(linear_predictions)
+
+lin_roc_curve <- roc(test_labels, lin_test_preds)
+plot(lin_roc_curve, col = "#FD8D3C", main = "ROC Curve - Linear", lwd = 2)
+lin_auc_value <- auc(lin_roc_curve)
+text(0.6,0.4, paste("AUC =", round(lin_auc_value, 4)), col = "#FD8D3C")
+
+```
+# Radial Model
+
+```{r}
+
+rad_start_time <- Sys.time()
+svm_radial <- train(dropout ~ ., data = df_train, method = "svmRadial", trControl = train_control, preProcess = "scale", tuneLength = 20)
+
+rad_end_time <- Sys.time()
+rad_training_time <- rad_end_time - rad_start_time
+print(svm_radial)
+
+rad_test_start_time <- Sys.time()
+rad_predictions <- predict(svm_radial, newdata = df_test)
+rad_test_end_time <- Sys.time()
+rad_test_time <- rad_test_end_time - rad_test_start_time
+
+cat("Radial Training Time:", rad_training_time, "\n")
+cat("Radial Testing Time:", rad_test_time, "\n")
+
+```
+
+# Radial Model Evaluation
+```{r}
+# Confusion Matrix
+
+cm_rad <- confusionMatrix(rad_predictions, df_test$dropout, mode = "prec_recall")
+
+cm_rad
+
+fourfoldplot(cm_rad$table, color = c("#FFF5EB", "#FD8D3C"), main = "Confusion Matrix - Radial")
+
+as.data.frame(cm_rad$table)
+
+ggplot(as.data.frame(cm_rad$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  scale_fill_gradient(low = "#FFF5EB", high = "#FD8D3C") +
+  theme_minimal() +
+  geom_text(aes(label = Freq), color = "black", size = 5, nudge_y = 0.1) +
+  geom_text(aes(label = c("True Negatives", "False Positives", "False Negatives", "True Positives")), size = 5, nudge_y = -0.1) +
+  labs(x = "Predicted", y = "Actual") +
+  theme(legend.position="none", plot.title = element_text(hjust=0.5, size = 14), axis.text = element_text(size = 12), axis.title = element_text(size = 12))
+  
+# ROC - AUC
+
+rad_test_preds = as.numeric(rad_predictions)
+
+rad_roc_curve <- roc(test_labels, rad_test_preds)
+plot(rad_roc_curve, col = "#FD8D3C", main = "ROC Curve - Radial", lwd = 2)
+rad_auc_value <- auc(rad_roc_curve)
+text(0.6,0.4, paste("AUC =", round(rad_auc_value, 4)), col = "#FD8D3C")
+
+```
+# Polynomial Model
+
+```{r}
+poly_start_time <- Sys.time()
+
+svm_poly <- train(dropout ~ ., data = df_train, method = "svmPoly", trControl = train_control, preProcess = "scale", tuneLength = 20)
+
+poly_end_time <- Sys.time()
+poly_training_time <- poly_end_time - poly_start_time
+
+print(svm_poly)
+
+poly_test_start_time <- Sys.time()
+poly_predictions <- predict(svm_poly, newdata = df_test)
+poly_test_end_time <- Sys.time()
+poly_test_time <- poly_test_end_time - poly_test_start_time
+
+cat("Polynomial Training Time:", poly_training_time, "\n")
+cat("Polynomial Testing Time:", poly_test_time, "\n")
+
+```
+
+# Polynomial Model Evaluation
+```{r}
+# Confusion Matrix
+
+cm_poly <- confusionMatrix(poly_predictions, df_test$dropout, mode = "prec_recall")
+
+cm_poly
+
+fourfoldplot(cm_poly$table, color = c("#FFF5EB", "#FD8D3C"), main = "Confusion Matrix - Polynomial")
+
+as.data.frame(cm_poly$table)
+
+ggplot(as.data.frame(cm_poly$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() +
+  scale_fill_gradient(low = "#FFF5EB", high = "#FD8D3C") +
+  theme_minimal() +
+  geom_text(aes(label = Freq), color = "black", size = 5, nudge_y = 0.1) +
+  geom_text(aes(label = c("TN", "FP", "FN", "TP")), size = 5, nudge_y = -0.1) +
+  labs(x = "Predicted", y = "Actual", title = "Confusion Matrix") +
+  theme(legend.position="none", plot.title = element_text(hjust=0.5, size = 14), axis.text = element_text(size = 12), axis.title = element_text(size = 12))
+  
+# ROC - AUC
+
+poly_test_preds = as.numeric(poly_predictions)
+
+poly_roc_curve <- roc(test_labels, poly_test_preds)
+plot(poly_roc_curve, col = "#FD8D3C", main = "ROC Curve - polynomial", lwd = 2)
+poly_auc_value <- auc(poly_roc_curve)
+text(0.6,0.4, paste("AUC =", round(poly_auc_value, 4)), col = "#FD8D3C")
+```
+
+# Model Comparison
+
+```{r}
+
+comp_matrix <- round(matrix(c(cm_linear$byClass['Balanced Accuracy'], cm_rad$byClass['Balanced Accuracy'], cm_poly$byClass['Balanced Accuracy'], cm_linear$byClass['F1'],  cm_rad$byClass['F1'], cm_poly$byClass['F1'], lin_auc_value[1], rad_auc_value[1], poly_auc_value[1], lin_training_time, rad_training_time, poly_training_time, lin_test_time, rad_test_time, poly_test_time), ncol = 5),4)
+
+colnames(comp_matrix) <- c("Balanced Accuracy", "F1 Score", "AUC", "Training Time", "Testing Time")
+rownames(comp_matrix) <- c("Linear", "Radial", "Polynomial")
+
+comp_matrix
+
+# The polynomial model is taking way longer than that to train.
+
+matrix2 <- round(matrix(c(cm_linear$byClass['Balanced Accuracy'], cm_rad$byClass['Balanced Accuracy'], cm_poly$byClass['Balanced Accuracy'], cm_linear$byClass['F1'],  cm_rad$byClass['F1'], cm_poly$byClass['F1'], lin_auc_value[1], rad_auc_value[1], poly_auc_value[1]), ncol = 3),4)
+
+colnames(matrix2) <- c("Balanced Accuracy", "F1 Score", "AUC")
+rownames(matrix2) <- c("Linear", "Radial", "Polynomial")
+
+matrix2
+```
